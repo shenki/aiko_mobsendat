@@ -20,6 +20,9 @@
  * - NewSoftSerial library (download is at the bottom of the web page)
  *   http://arduiniana.org/libraries/newsoftserial
  *
+ * - OneWire library
+ *   URL ?
+ *
  * - PString library
  *   http://arduiniana.org/libraries/pstring
  *
@@ -37,10 +40,10 @@
  * - Separate configuration include file.
  * - Support hardware UART serial output for diagnosis without ZigBee and GPS.
  * - Logging to micro-SD storage.
- * - One-wire temperature sensor.
+ * - Write records properly, including millisecondCounter records.
  * - GPS latitude, longitude, altitude, speed.
- * - 3-axis accelerometer (SPI).
  * - Real Time Clock (write record to storage).
+ * - Selection of records to be transmitted by radio.
  * - State machine track rocket through ready/boost/flight/recovery/landed.
  *
  * Notes
@@ -59,10 +62,11 @@
  *   - t:temperature            # one-wire temperature (celcius)
  */
 
+#include <OneWire.h>
 #include <PString.h>
 #include <SdFat.h>
 #include <Spi.h>
-#include "Wire.h"
+#include <Wire.h>
 
 #include <AikoEvents.h>
 
@@ -73,23 +77,21 @@ using namespace Aiko;
 char globalBuffer[GLOBAL_BUFFER_SIZE];  // Store dynamically constructed string
 PString globalString(globalBuffer, sizeof(globalBuffer));
 
-// Accelerometer shared state
-byte accelBuffer[40][6];
-byte accelSamples;
-
 void setup() {
   serialInitialize();
-  accelInitalize();
   storageInitialize();
+
+  accelerometerInitalize();
   barometricInitialize();
   hfradioInitialize();
 
   Events.addHandler(heartbeatHandler,    HEARTBEAT_PERIOD);
   Events.addHandler(millisecondHandler,                 1);
+  Events.addHandler(accelerometerHandler,             100);
+  Events.addHandler(accelerometerDump,               1000);
   Events.addHandler(barometricHandler,                100);
   Events.addHandler(batteryHandler,                  1000);
-  Events.addHandler(accelHandler,                     100);
-  Events.addHandler(accelDump,                       1000);
+  Events.addHandler(temperatureHandler,              1000);
 
   Events.addHandler(hfradioSend,                     5000);
 }
@@ -149,7 +151,7 @@ void heartbeatHandler(void) {
 
 const char *millisecondCounterAsString() {
   globalString.begin();
-  globalString  = "t:";
+  globalString  = "r:";
   globalString += secondCounter;
   globalString += ".";
   if (millisecondCounter < 10)  globalString += "0";
