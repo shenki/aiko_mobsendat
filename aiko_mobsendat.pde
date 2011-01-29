@@ -82,6 +82,7 @@ void setup() {
   accelInitalize();
   storageInitialize();
   barometricInitialize();
+  hfradioInitialize();
 
   Events.addHandler(heartbeatHandler,    HEARTBEAT_PERIOD);
   Events.addHandler(millisecondHandler,                 1);
@@ -89,6 +90,8 @@ void setup() {
   Events.addHandler(batteryHandler,                  1000);
   Events.addHandler(accelHandler,                     100);
   Events.addHandler(accelDump,                       1000);
+
+  Events.addHandler(hfradioSend,                     5000);
 }
 
 void loop() {
